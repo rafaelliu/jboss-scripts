@@ -10,7 +10,6 @@ More info: http://www.rafaelliu.net/2013/10/04/jboss-as7-enhanced-init-script-do
 * Uses CLI instead of Linux commands (ps and pid files) for operations
 * Checks whether there’s already a running instance before start
 * Caches DC configuration by default, allowing to start with cached config (in case DC is down)
-
 * Parameters are: {start [console|sync|async|cached]|stop|restart|status|cli|tail [server name]}
 * **start** or **start async**: fires and forget, will return true even if boot process later fails
 * **start sync**: start JBoss process and only exists after verifying host-state
