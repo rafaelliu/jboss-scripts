@@ -10,13 +10,14 @@ More info: http://www.rafaelliu.net/2013/10/04/jboss-as7-enhanced-init-script-do
 * Uses CLI instead of Linux commands (ps and pid files) for operations
 * Checks whether there’s already a running instance before start
 * Caches DC configuration by default, allowing to start with cached config (in case DC is down)
+
 * Parameters are: {start [console|sync|async|cached]|stop|restart|status|cli|tail [server name]}
-* start or start async: fires and forget, will return true even if boot process later fails
-* start sync: start JBoss process and only exists after verifying host-state
-* start console: starts JBoss and tail $JBOSS_CONSOLE_LOG file (must be defined)
-* start cached: to be used in case DC is down, it will use the latest cached version of DC configuration (starts with –cached-dc by default)
-* cli: open instance’s CLI or executes anything after as a command (e.g. service jboss cli /host=master:shutdown)
-* tail: tail instance’s host-controller.log or use the parameter after to look for a server’s server.log (e.g. service jboss tail server-one)
+* **start** or **start async**: fires and forget, will return true even if boot process later fails
+* **start sync**: start JBoss process and only exists after verifying host-state
+* **start console**: starts JBoss and tail $JBOSS_CONSOLE_LOG file (must be defined)
+* **start cached**: to be used in case DC is down, it will use the latest cached version of DC configuration (starts with –cached-dc by default)
+* **cli**: open instance’s CLI or executes anything after as a command (e.g. service jboss cli /host=master:shutdown)
+* **tail**: tail instance’s host-controller.log or use the parameter after to look for a server’s server.log (e.g. service jboss tail server-one)
 
 ## How to use it
 
@@ -27,8 +28,8 @@ The main script is jboss-as-domain.sh but it is not used directly. For each inst
 * **DOMAIN_PROFILE**: is the name of the domain folder (e.g. production, staging, development, etc)
 * The script relays on a few standards I use:
 
-* Configuration of HC is done through host-slave.xml
-* Configuration of DC is done through host-master.xml
+* Configuration of HC is done through **host-slave.xml**
+* Configuration of DC is done through **host-master.xml**
 * Profiles have their own bin dir
 
 ## Provisioning a DC
