@@ -55,17 +55,18 @@ JBOSS_DOMAIN_CONFIG=${JBOSS_DOMAIN_CONFIG:-"domain.xml"}
 if [ -z "$MASTER_ADDRESS" ]; then
   # if there's a master, defaults to host-master.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-master.xml"}
-
-  # JBoss host's name (will be used in jboss-cli)
-  HOST="master"
+  
 else
   # if there's no master, defaults to host-slave.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-slave.xml"}
 
   # also add master's address
   JBOSS_OPTS="$JBOSS_OPTS --master-address=$MASTER_ADDRESS"
-  
-  # JBoss host's name (will be used in jboss-cli)
+fi
+
+# JBoss host's name (will be used in jboss-cli)
+HOST=$(grep -ro '<host[ \t].*name="[^"]*"' $PROFILE_HOME/configuration/$JBOSS_HOST_CONFIG | cut -f2 -d ' ' | cut -f2 -d'"')
+if [ ! "$HOST" ]; then 
   HOST="$( hostname )"
 fi
 
