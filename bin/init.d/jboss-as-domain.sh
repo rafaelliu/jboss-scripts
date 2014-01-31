@@ -18,7 +18,10 @@
 #
 
 # Source function library.
-. /etc/init.d/functions
+
+if [[ $OSTYPE == *linux* ]]; then
+	. /etc/init.d/functions
+fi
 
 # Load Java configuration.
 export JAVA_HOME
@@ -29,6 +32,7 @@ if [ -z "$JBOSS_HOME" ]; then
   echo "ERROR: must define JBOSS_HOME"
   exit 1
 fi
+
 export JBOSS_HOME
 
 JBOSS_USER=${JBOSS_USER:-"jboss"}
