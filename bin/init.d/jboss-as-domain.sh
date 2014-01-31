@@ -18,7 +18,10 @@
 #
 
 # Source function library.
-. /etc/init.d/functions
+
+if [[ $OSTYPE == *linux* ]]; then
+	. /etc/init.d/functions
+fi
 
 # Load Java configuration.
 export JAVA_HOME
@@ -29,6 +32,7 @@ if [ -z "$JBOSS_HOME" ]; then
   echo "ERROR: must define JBOSS_HOME"
   exit 1
 fi
+
 export JBOSS_HOME
 
 JBOSS_USER=${JBOSS_USER:-"jboss"}
@@ -43,38 +47,41 @@ JBOSS_OPTS=${JBOSS_OPTS:-""}
 BIND_ADDRESS=${BIND_ADDRESS:-"127.0.0.1"}
 
 PUBLIC_ADDRESS=${PUBLIC_ADDRESS:-"$BIND_ADDRESS"}
+
 MANAGEMENT_ADDRESS=${MANAGEMENT_ADDRESS:-"$BIND_ADDRESS"}
+
+DOMAIN_PROFILE=${DOMAIN_PROFILE:-"$JBOSS_HOME/domain"}
 
 # check for a domain config file, defaults to domain.xml
 JBOSS_DOMAIN_CONFIG=${JBOSS_DOMAIN_CONFIG:-"domain.xml"}
 
+JBOSS_SCRIPT=$JBOSS_HOME/bin/domain.sh
+
 if [ -z "$MASTER_ADDRESS" ]; then
   # if there's a master, defaults to host-master.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-master.xml"}
-
-  # JBoss host's name (will be used in jboss-cli)
-  HOST="master"
+  
 else
   # if there's no master, defaults to host-slave.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-slave.xml"}
 
   # also add master's address
   JBOSS_OPTS="$JBOSS_OPTS --master-address=$MASTER_ADDRESS"
-  
-  # JBoss host's name (will be used in jboss-cli)
+fi
+
+# JBoss host's name (will be used in jboss-cli)
+HOST=$(grep -ro '<host[ \t].*name="[^"]*"' $PROFILE_HOME/configuration/$JBOSS_HOST_CONFIG | cut -f2 -d ' ' | cut -f2 -d'"')
+if [ ! "$HOST" ]; then 
   HOST="$( hostname )"
 fi
 
-DOMAIN_PROFILE=${DOMAIN_PROFILE:-"$JBOSS_HOME/domain"}
-
 # build final opts
-JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$DOMAIN_PROFILE --domain-config=$JBOSS_DOMAIN_CONFIG --host-config=$JBOSS_HOST_CONFIG -b $PUBLIC_ADDRESS -bmanagement $MANAGEMENT_ADDRESS"
+JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$PROFILE_HOME --domain-config=$JBOSS_DOMAIN_CONFIG --host-config=$JBOSS_HOST_CONFIG -b $PUBLIC_ADDRESS -bmanagement $MANAGEMENT_ADDRESS"
 
-JBOSS_SCRIPT=$JBOSS_HOME/bin/domain.sh
 prog='jboss-as'
 
 start() {
-  echo -n "Starting $prog: "
+  echo "Starting $prog: "
   cat /dev/null > $JBOSS_CONSOLE_LOG
   
   status &> /dev/null
@@ -101,7 +108,6 @@ start() {
   fi
 
   if [ "$?" != "0" ]; then
-    failure
     echo
     exit 1
   fi
@@ -122,7 +128,6 @@ start() {
 
 start_console() {
   if [ "$JBOSS_CONSOLE_LOG" = "/dev/null" ]; then
-    waning
     echo
 
     echo "- You must set JBOSS_CONSOLE_LOG in order to see the console output. You may also use 'service jboss tail'"
@@ -151,18 +156,15 @@ start_sync() {
   done
 
   if [ $launched ]; then
-    success
     echo
     exit 0
   else
-    failure
     echo
     exit 1
   fi
 }
 
 start_async() {
-  success
   echo
 
   echo "- NOTE: that doesn't mean JBoss was started!'"
@@ -172,24 +174,22 @@ start_async() {
 
 cleanup() {
 
-  chown -R $JBOSS_USER. $JBOSS_HOME
+  chown -R $JBOSS_USER: $JBOSS_HOME
 
   # https://bugzilla.redhat.com/show_bug.cgi?id=901210
-  rm -rf $DOMAIN_PROFILE/tmp
+  rm -rf $DOMAIN_PROFILE/tmp/*
  
 }
 
 stop() {
-  echo -n $"Stopping $prog: "
+  echo $"Stopping $prog: "
 
   cli "/host=$HOST:shutdown" &> /dev/null
 
   status &> /dev/null
-  if [ $? = 1 ]; then
-    success
+  if [ $? = 1 ]; then    
     echo
   else
-    failure
     echo
   fi
 }
@@ -216,9 +216,9 @@ cli() {
 
 tail_log() {
   if [ $# = 0 ]; then
-    tail -100f "$DOMAIN_PROFILE/log/host-controller.log"
+    tail -100f "$PROFILE_HOME/log/host-controller.log"
   else
-    tail -100f "$DOMAIN_PROFILE/servers/$1/log/server.log"
+    tail -100f "$PROFILE_HOME/servers/$1/log/server.log"
   fi
 }
 
