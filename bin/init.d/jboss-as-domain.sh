@@ -175,7 +175,7 @@ cleanup() {
   chown -R $JBOSS_USER. $JBOSS_HOME
 
   # https://bugzilla.redhat.com/show_bug.cgi?id=901210
-  rm -rf $DOMAIN_PROFILE/tmp
+  rm -rf $DOMAIN_PROFILE/tmp/*
  
 }
 
