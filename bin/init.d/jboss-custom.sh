@@ -57,6 +57,16 @@ JBOSS_DOMAIN_CONFIG=${JBOSS_DOMAIN_CONFIG:-"domain.xml"}
 
 JBOSS_SCRIPT=$JBOSS_HOME/bin/domain.sh
 
+#
+# validations
+#
+
+id $JBOSS_USER > /dev/null
+if [ $? ]; then
+  echo "User '$JBOSS_USER' doesn't exist. Create it or change JBOSS_USER param"
+  exit 1
+fi
+
 if [ -z "$MASTER_ADDRESS" ]; then
   # if there's a master, defaults to host-master.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-master.xml"}
