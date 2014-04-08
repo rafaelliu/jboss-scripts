@@ -47,7 +47,7 @@ elif [[ $OSTYPE == *darwin* ]]; then
 	
 fi
 
-. $JBOSS_HOME/bin/init.d/jboss-as-domain.sh $*
+. $JBOSS_HOME/bin/init.d/jboss-custom.sh $*
 
 
 

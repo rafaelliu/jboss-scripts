@@ -20,7 +20,7 @@ More info: http://www.rafaelliu.net/2013/10/04/jboss-as7-enhanced-init-script-do
 
 ## How to use it
 
-The main script is jboss-as-domain.sh but it is not used directly. For each instance you should create a init script based on jboss-init.sh, this is the only file you should be editing. Most of the parameters are self-explanatory, but a few are worth mentioning:
+The main script is jboss-custom.sh but it is not used directly. For each instance you should create a init script based on jboss-init.sh, this is the only file you should be editing. Most of the parameters are self-explanatory, but a few are worth mentioning:
 
 * **MASTER_ADDRESS**: this should be set with DC’s address if (and only if) this instance is a HC. Leave it commented if it’s the DC
 * **JBOSS_CONSOLE_LOG**: useful for debugging. If defined, all STDOUT will be redirected to this file. It is not rotated, it’s a simple bash redirect as in &>
