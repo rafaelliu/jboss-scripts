@@ -62,10 +62,14 @@ JBOSS_SCRIPT=$JBOSS_HOME/bin/domain.sh
 #
 
 id $JBOSS_USER > /dev/null
-if [ $? ]; then
+if [ "$?" != "0" ]; then
   echo "User '$JBOSS_USER' doesn't exist. Create it or change JBOSS_USER param"
   exit 1
 fi
+
+#
+#
+#
 
 if [ -z "$MASTER_ADDRESS" ]; then
   # if there's a master, defaults to host-master.xml (can still set explicitly)
@@ -197,11 +201,79 @@ stop() {
   cli "/host=$HOST:shutdown" &> /dev/null
 
   status &> /dev/null
-  if [ $? = 1 ]; then    
+  if [ "$?" = "1" ]; then    
     echo
   else
-    echo
+    echo "Looks like JBoss is not responding"
+    echo "You may force a kill ussuing a $0 kill"
   fi
+}
+
+get_pids_for() {
+  if [ -z "$1" ]; then
+    PIDS=$( jps -lvm | grep "jboss.domain.base.dir=$PROFILE_HOME" 2> /dev/null )
+  else
+    PIDS=$( jps -lvm | grep "jboss.domain.base.dir=$PROFILE_HOME" | grep "\[$1\]" 2> /dev/null )
+  fi
+  echo $PIDS | cut -f1 -d' '
+}
+
+force_kill() {
+  PID=$( get_pids_for 'Process Controler' )
+  kill -9 $PID
+
+  # this is just to supress kill message
+  wait $PIDS 2>/dev/null # so bash doesn't warn
+  sleep 1
+
+  echo "Issued a kill -9 for PID: $PID"
+}
+
+dump_all() {
+
+  status &> /dev/null
+  if [ "$?" != "0" ]; then
+    echo "$prog is not running"
+    return 1
+  fi
+
+  DUMP_FILE="jboss-dump-$( date +%Y%m%d-%H%M%S )"
+  DUMP_PATH="/tmp/$DUMP_FILE"
+  mkdir "$DUMP_PATH"
+
+  cli "/:read-resource(recursive=true,include-runtime=true)" &> "$DUMP_PATH/cli.dump" &
+
+  # copy logs
+  cp -a "$PROFILE_HOME/log" "$DUMP_PATH/log" &
+
+  # process controller
+  PC_PID=$( get_pids_for "Process Controller" )
+  ps aux | grep $PC_PID &> "$DUMP_PATH/pc_ps.out"
+  jstack $PC_PID &> "$DUMP_PATH/pc_jstack.out"
+  jmap -heap $PC_PID &> "$DUMP_PATH/pc_jmap.out"
+
+  # host controller
+  HC_PID=$( get_pids_for "Host Controller" )
+  ps aux | grep $HC_PID &> "$DUMP_PATH/hc_ps.out"
+  jstack $HC_PID &> "$DUMP_PATH/hc_jstack.out"
+  jmap -heap $HC_PID &> "$DUMP_PATH/hc_jmap.out"
+
+  # servers
+  for SERVER in $( ls $PROFILE_HOME/servers); do
+    mkdir "$DUMP_PATH/$SERVER" &
+    PID=$( get_pids_for "Server:$SERVER" )
+
+    if [ "$PID" != "" ]; then
+      ps aux | grep $PID &> "$DUMP_PATH/$SERVER/ps.out"
+      jstack $PID &> "$DUMP_PATH/$SERVER/jstack.out"
+      jmap -heap $PID &> "$DUMP_PATH/$SERVER/jmap.out"
+    fi
+
+    cp -a "$PROFILE_HOME/servers/$SERVER/log" "$DUMP_PATH/$SERVER/log" &
+  done
+
+  tar zcvf "${DUMP_FILE}.tar.gz" "$DUMP_PATH" &> /dev/null
+  echo "Generated dump file: ${DUMP_FILE}.tar.gz"
 }
 
 status() {
@@ -239,6 +311,9 @@ case "$1" in
   stop)
       stop
       ;;
+  kill)
+      force_kill
+      ;;
   restart)
       $0 stop
       $0 start $2
@@ -252,9 +327,12 @@ case "$1" in
   tail)
       tail_log ${*#"tail"}  # pass the second parameter forward
       ;;
+  dump)
+      dump_all
+      ;;
   *)
       ## If no parameters are given, print which are avaiable.
-      echo "Usage: $0 {start [console|sync|async|cached]|stop|restart|status|cli|tail [server name]}"
+      echo "Usage: $0 {start [console|sync|async|cached]|stop|kill|restart|status|cli|tail [server name]|dump}"
       exit 1
       ;;
 esac
