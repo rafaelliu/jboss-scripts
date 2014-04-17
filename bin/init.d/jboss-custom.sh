@@ -188,7 +188,7 @@ start_async() {
 
 cleanup() {
 
-  chown -R $JBOSS_USER: $JBOSS_HOME
+  #chown -R $JBOSS_USER: $JBOSS_HOME
 
   # https://bugzilla.redhat.com/show_bug.cgi?id=901210
   rm -rf $DOMAIN_PROFILE/tmp/*
@@ -277,14 +277,20 @@ dump_all() {
 }
 
 status() {
-  cli "/host=$HOST:read-attribute(name=host-state)" 2> /dev/null | grep "running" > /dev/null
-  if [ $? -eq 0 ] ; then
-    echo "$prog is running"
-    return 0
-  else
+  PID=$( get_pids_for 'Process Controller' )
+  if [ -z $PID ] ; then
     echo "$prog is dead"
     return 1
   fi
+
+  STATUS=$( cli "/host=$HOST:read-attribute(name=host-state)" 2> /dev/null | grep "result" | sed 's/.*=> "\(.*\)"/\1/g' )
+  if [ -z $STATUS ]; then
+    echo "$prog is up, but not responsive"
+    return 2
+  fi
+
+  echo "$prog is up (pid: $PID, status: $STATUS)"
+  return 0
 }
 
 cli() {
