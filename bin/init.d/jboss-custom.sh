@@ -86,7 +86,11 @@ fi
 # JBoss host's name (will be used in jboss-cli)
 HOST=$(grep -ro '<host[ \t].*name="[^"]*"' $PROFILE_HOME/configuration/$JBOSS_HOST_CONFIG | cut -f2 -d ' ' | cut -f2 -d'"')
 if [ ! "$HOST" ]; then 
-  HOST="$( hostname )"
+  if [ -z "$MASTER_ADDRESS" ]; then
+    HOST="$( hostname )"
+  else
+    HOST="master"
+  fi
 fi
 
 # build final opts
@@ -205,7 +209,7 @@ stop() {
     echo
   else
     echo "Looks like JBoss is not responding"
-    echo "You may force a kill ussuing a $0 kill"
+    echo "You may force a kill issuing a $0 kill"
   fi
 }
 
@@ -219,7 +223,7 @@ get_pids_for() {
 }
 
 force_kill() {
-  PID=$( get_pids_for 'Process Controler' )
+  PID=$( get_pids_for 'Process Controller' )
   kill -9 $PID
 
   # this is just to supress kill message
