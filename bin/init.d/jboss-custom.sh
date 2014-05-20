@@ -21,8 +21,25 @@
 # Source function library.
 
 if [[ $OSTYPE == *linux* ]]; then
-	. /etc/init.d/functions
+  . /etc/init.d/functions
+else
+  alias warning=echo -n
+  alias sucess=echo -n
+  alias failure=echo -n
 fi
+
+derelativize() {
+  if [[ $OSTYPE == *linux* ]]; then
+    readlink -f $1
+  elif [[ $OSTYPE == *darwin* ]]; then 
+    if hash greadlink 2>/dev/null; then
+      greadlink -f $1
+    else
+      echo "ERROR: You need greadlink to run this, please run: brew install coreutils / macports install coreutils"
+      exit 1
+    fi
+  fi
+}
 
 # Load Java configuration.
 export JAVA_HOME
@@ -30,8 +47,19 @@ export JAVA_HOME
 # Set defaults.
 
 if [ -z "$JBOSS_HOME" ]; then
-  echo "ERROR: must define JBOSS_HOME"
-  exit 1
+  PROGRAM=$( derelativize $0 )
+  DIR=$( dirname $PROGRAM )
+
+  DOMAIN_PROFILE=${DIR%%/bin}
+  DOMAIN_PROFILE=${DOMAIN_PROFILE##*/}
+
+  PROFILE_HOME=$( derelativize $DIR/../ )
+  JBOSS_HOME=$( derelativize $DIR/../../ )
+
+  if [ -z "$JBOSS_HOME/bin/product.conf" ]; then
+    echo "ERROR: couldn't auto-find JBOSS_HOME, must defined"
+    exit 1
+  fi
 fi
 
 export JBOSS_HOME
@@ -101,7 +129,7 @@ JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$PROFILE_HOME --domain-config=$J
 prog='jboss-as'
 
 start() {
-  echo "Starting $prog: "
+  echo -n "Starting $prog: "
   cat /dev/null > $JBOSS_CONSOLE_LOG
   
   status &> /dev/null
@@ -128,6 +156,7 @@ start() {
   fi
 
   if [ "$?" != "0" ]; then
+    failure
     echo
     exit 1
   fi
@@ -148,6 +177,7 @@ start() {
 
 start_console() {
   if [ "$JBOSS_CONSOLE_LOG" = "/dev/null" ]; then
+    warning
     echo
 
     echo "- You must set JBOSS_CONSOLE_LOG in order to see the console output. You may also use 'service jboss tail'"
@@ -171,20 +201,23 @@ start_sync() {
       launched=true
       break
     fi 
-    sleep 10
-    let count=$count+10;
+    sleep 1
+    let count=$count+1;
   done
 
   if [ $launched ]; then
+    sucess
     echo
     exit 0
   else
+    failure
     echo
     exit 1
   fi
 }
 
 start_async() {
+  success
   echo
 
   echo "- NOTE: that doesn't mean JBoss was started!'"
@@ -202,25 +235,27 @@ cleanup() {
 }
 
 stop() {
-  echo $"Stopping $prog: "
+  echo -n "Stopping $prog: "
 
   cli "/host=$HOST:shutdown" &> /dev/null
 
   count=0
-  stoped=false
+  stopped=false
   until [ $count -gt $JBOSS_SHUTDOWN_WAIT ]; do
     status &> /dev/null
-    if [ "$?" != "0" ] ; then
-      stoped=true
+    if [ "$?" = "1" ] ; then
+      stopped=true
       break
     fi 
-    sleep 10
-    let count=$count+10;
+    sleep 1
+    let count=$count+1;
   done
 
   if [ $stopped ]; then    
+    success
     echo
   else
+    failure
     echo "Looks like JBoss is not responding"
     echo "You may force a kill issuing a $0 kill"
   fi
@@ -244,6 +279,10 @@ force_kill() {
   sleep 1
 
   echo "Issued a kill -9 for PID: $PID"
+}
+
+jdr() {
+  $JBOSS_HOME/bin/jdr.sh
 }
 
 dump_all() {
@@ -351,6 +390,9 @@ case "$1" in
       tail_log ${*#"tail"}  # pass the second parameter forward
       ;;
   dump)
+      dump_all
+      ;;
+  jdr)
       dump_all
       ;;
   *)
