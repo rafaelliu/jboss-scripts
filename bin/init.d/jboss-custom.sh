@@ -6,7 +6,8 @@
 #  JBOSS_HOME: yes, you guessed it!
 #  JBOSS_USER: owner of the process
 #  JBOSS_CONSOLE_LOG: log file to which redirect ouput
-#  JBOSS_STARTUP_WAIT: timout to consider a startup failed (process be left intact)
+#  JBOSS_STARTUP_WAIT: timout to consider a startup failed (process will be left intact)
+#  JBOSS_SHUTDOWN_WAIT: timout to consider a shutdown failed (process will be left intact)
 #  JBOSS_OPTS: custom JBoss options can go here
 #  BIND_ADDRESS: general IP
 #  PUBLIC_ADDRESS: public IP (defaults to $BIND_ADDRESS)
@@ -40,6 +41,7 @@ JBOSS_USER=${JBOSS_USER:-"jboss"}
 JBOSS_CONSOLE_LOG=${JBOSS_CONSOLE_LOG:-"/dev/null"}
 
 JBOSS_STARTUP_WAIT=${JBOSS_STARTUP_WAIT:-"30"}
+JBOSS_SHUTDOWN_WAIT=${JBOSS_SHUTDOWN_WAIT:-"30"}
 
 # initialize opts
 JBOSS_OPTS=${JBOSS_OPTS:-""}
@@ -103,7 +105,7 @@ start() {
   cat /dev/null > $JBOSS_CONSOLE_LOG
   
   status &> /dev/null
-  if [ $? = 0 ]; then
+  if [ "$?" = "0" ]; then
     echo "$prog already running"
     return 1
   fi
@@ -165,7 +167,7 @@ start_sync() {
 
   until [ $count -gt $JBOSS_STARTUP_WAIT ]; do
     status &> /dev/null
-    if [ $? -eq 0 ] ; then
+    if [ "$?" = "0" ] ; then
       launched=true
       break
     fi 
@@ -204,8 +206,19 @@ stop() {
 
   cli "/host=$HOST:shutdown" &> /dev/null
 
-  status &> /dev/null
-  if [ "$?" = "1" ]; then    
+  count=0
+  stoped=false
+  until [ $count -gt $JBOSS_SHUTDOWN_WAIT ]; do
+    status &> /dev/null
+    if [ "$?" != "0" ] ; then
+      stoped=true
+      break
+    fi 
+    sleep 10
+    let count=$count+10;
+  done
+
+  if [ $stopped ]; then    
     echo
   else
     echo "Looks like JBoss is not responding"
@@ -289,7 +302,7 @@ status() {
 
   STATUS=$( cli "/host=$HOST:read-attribute(name=host-state)" 2> /dev/null | grep "result" | sed 's/.*=> "\(.*\)"/\1/g' )
   if [ -z $STATUS ]; then
-    echo "$prog is up, but not responsive"
+    echo "$prog process is up, but CLI is not responsive (may be shuting down or botting)"
     return 2
   fi
 
