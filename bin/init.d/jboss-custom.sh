@@ -24,22 +24,9 @@ if [[ $OSTYPE == *linux* ]]; then
   . /etc/init.d/functions
 else
   alias warning=echo -n
-  alias sucess=echo -n
+  alias success=echo -n
   alias failure=echo -n
 fi
-
-derelativize() {
-  if [[ $OSTYPE == *linux* ]]; then
-    readlink -f $1
-  elif [[ $OSTYPE == *darwin* ]]; then 
-    if hash greadlink 2>/dev/null; then
-      greadlink -f $1
-    else
-      echo "ERROR: You need greadlink to run this, please run: brew install coreutils / macports install coreutils"
-      exit 1
-    fi
-  fi
-}
 
 # Load Java configuration.
 export JAVA_HOME
@@ -47,19 +34,8 @@ export JAVA_HOME
 # Set defaults.
 
 if [ -z "$JBOSS_HOME" ]; then
-  PROGRAM=$( derelativize $0 )
-  DIR=$( dirname $PROGRAM )
-
-  DOMAIN_PROFILE=${DIR%%/bin}
-  DOMAIN_PROFILE=${DOMAIN_PROFILE##*/}
-
-  PROFILE_HOME=$( derelativize $DIR/../ )
-  JBOSS_HOME=$( derelativize $DIR/../../ )
-
-  if [ -z "$JBOSS_HOME/bin/product.conf" ]; then
-    echo "ERROR: couldn't auto-find JBOSS_HOME, must defined"
-    exit 1
-  fi
+  echo "ERROR: couldn't find JBOSS_HOME, must defined"
+  exit 1
 fi
 
 export JBOSS_HOME
@@ -150,8 +126,13 @@ start() {
     CMD="$JBOSS_SCRIPT $JBOSS_OPTS"
     if [ "$( id -un )" = "$JBOSS_USER" ]; then
       $CMD 2>&1 > $JBOSS_CONSOLE_LOG &
-    else
+    elif [ "$( id -un )" = "root" ]; then
       su - $JBOSS_USER -c "LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$JBOSS_PIDFILE $CMD" 2>&1 > $JBOSS_CONSOLE_LOG &
+    else
+      failure
+      echo
+      echo "Must logged as either $JBOSS_USER or root to launch $prog"
+      exit 1
     fi
   fi
 
@@ -176,7 +157,7 @@ start() {
 }
 
 start_console() {
-  if [ "$JBOSS_CONSOLE_LOG" = "/dev/null" ]; then
+  if [ -z "$JBOSS_CONSOLE_LOG" ] || [ "$JBOSS_CONSOLE_LOG" = "/dev/null" ]; then
     warning
     echo
 
@@ -186,6 +167,7 @@ start_console() {
     exit 1
   fi
 
+  echo
   tail -100f $JBOSS_CONSOLE_LOG
 
   exit 0
@@ -206,7 +188,7 @@ start_sync() {
   done
 
   if [ $launched ]; then
-    sucess
+    success
     echo
     exit 0
   else

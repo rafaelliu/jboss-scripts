@@ -9,6 +9,8 @@
 # Rafael Liu <rafaelliu@gmail.com>
 #
 
+source ./common.sh
+
 BIND_ADDRESS="127.0.0.1"
 
 # uncomment if (and only if) it's a remote HC
@@ -17,7 +19,7 @@ BIND_ADDRESS="127.0.0.1"
 # need in order to use service jboss start console
 #JBOSS_CONSOLE_LOG="/tmp/jboss-console.log"
 
-. ../../bin/init.d/jboss-custom.sh $*
+source $JBOSS_HOME/bin/init.d/jboss-custom.sh $*
 
 
 

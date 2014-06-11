@@ -5,8 +5,6 @@
 # Rafael Liu <rafaelliu@gmail.com>
 #
 
-DIR=$( dirname $0 )
-PROFILE_HOME=$( readlink -f $DIR/../ )
-JBOSS_HOME=$( readlink -f $DIR/../../ )
+source ./common.sh
 
 JAVA_OPTS="$JAVA_OPTS -Djboss.domain.config.user.dir=$PROFILE_HOME/configuration" $JBOSS_HOME/bin/add-user.sh $*
