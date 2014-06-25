@@ -9,18 +9,36 @@
 # Rafael Liu <rafaelliu@gmail.com>
 #
 
-source ./common.sh
+derelativize() {
+  if [[ $OSTYPE == *linux* ]]; then
+    readlink -f $1
+  elif [[ $OSTYPE == *darwin* ]]; then
+    if hash greadlink 2>/dev/null; then
+      greadlink -f $1
+    else
+      echo "ERROR: You need greadlink to run this, please run: brew install coreutils / macports install coreutils"
+      exit 1
+    fi
+  fi
+}
 
-BIND_ADDRESS="127.0.0.1"
+PROGRAM=$( derelativize $0 )
+DIR=$( dirname $PROGRAM )
 
-# uncomment if (and only if) it's a remote HC
-#MASTER_ADDRESS="xxx.xxx.xxx.xxx"
+if [ -z "$JBOSS_HOME" ]; then
+  DOMAIN_PROFILE=${DIR%%/bin}
+  DOMAIN_PROFILE=${DOMAIN_PROFILE##*/}
 
-# need in order to use service jboss start console
-#JBOSS_CONSOLE_LOG="/tmp/jboss-console.log"
+  PROFILE_HOME=$( derelativize $DIR/../ )
+  JBOSS_HOME=$( derelativize $DIR/../../ )
+
+  if [ -z "$JBOSS_HOME/bin/product.conf" ]; then
+    echo "ERROR: couldn't auto-find JBOSS_HOME, must defined"
+    exit 1
+  fi
+fi
+
+source $DIR/setup.conf
 
 source $JBOSS_HOME/bin/init.d/jboss-custom.sh $*
-
-
-
 

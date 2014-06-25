@@ -93,9 +93,9 @@ fi
 HOST=$(grep -ro '<host[ \t].*name="[^"]*"' $PROFILE_HOME/configuration/$JBOSS_HOST_CONFIG | cut -f2 -d ' ' | cut -f2 -d'"')
 if [ ! "$HOST" ]; then 
   if [ -z "$MASTER_ADDRESS" ]; then
-    HOST="$( hostname )"
-  else
     HOST="master"
+  else
+    HOST="$( hostname )"
   fi
 fi
 
@@ -245,9 +245,9 @@ stop() {
 
 get_pids_for() {
   if [ -z "$1" ]; then
-    PIDS=$( jps -lvm | grep "jboss.domain.base.dir=$PROFILE_HOME" 2> /dev/null )
+    PIDS=$( ps ax | grep "jboss.domain.base.dir=$PROFILE_HOME" 2> /dev/null )
   else
-    PIDS=$( jps -lvm | grep "jboss.domain.base.dir=$PROFILE_HOME" | grep "\[$1\]" 2> /dev/null )
+    PIDS=$( ps ax | grep "jboss.domain.base.dir=$PROFILE_HOME" | grep "\[$1\]" 2> /dev/null )
   fi
   echo $PIDS | cut -f1 -d' '
 }
@@ -334,7 +334,10 @@ status() {
 cli() {
   OPTS="--connect --controller=$MANAGEMENT_ADDRESS "
   if [ ! -z "$*" ]; then
-     OPTS="$OPTS --command=$@"
+     # hack: jboss-cli doesn't handle quotes well
+     FILE="/tmp/jboss-cli_$( date +%Y%m%d-%H%M%S%N )"
+     echo "$*" > $FILE
+     OPTS="$OPTS --file=$FILE"
   fi
 
   $JBOSS_HOME/bin/jboss-cli.sh $OPTS
@@ -379,7 +382,7 @@ case "$1" in
       ;;
   *)
       ## If no parameters are given, print which are avaiable.
-      echo "Usage: $0 {start [console|sync|async|cached]|stop|kill|restart|status|cli|tail [server name]|dump}"
+      echo "Usage: $0 {start [console|sync|async|cached]|stop|kill|restart|status|cli [cmd]|tail [server name]|dump|jdr}"
       exit 1
       ;;
 esac

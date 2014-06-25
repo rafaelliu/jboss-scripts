@@ -13,10 +13,9 @@ derelativize() {
   fi
 }
 
-if [ -z "$JBOSS_HOME" ]; then
-  PROGRAM=$( derelativize $0 )
-  DIR=$( dirname $PROGRAM )
+PROGRAM=$( derelativize $0 )
 
+if [ -z "$JBOSS_HOME" ]; then
   DOMAIN_PROFILE=${DIR%%/bin}
   DOMAIN_PROFILE=${DOMAIN_PROFILE##*/}
 
@@ -29,4 +28,4 @@ if [ -z "$JBOSS_HOME" ]; then
   fi
 fi
 
-source ./setup.conf
+source $DIR/setup.conf
