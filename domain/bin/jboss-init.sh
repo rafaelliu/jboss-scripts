@@ -6,7 +6,8 @@
 # description: JBoss AS Domain
 # processname: domain
 #
-# Rafael Liu <rafaelliu@gmail.com>
+# Author: Rafael Liu <rafaelliu@gmail.com>
+# Modified by: Anderson Deluiz <https://github.com/anddeluiz>
 #
 
 derelativize() {
@@ -32,8 +33,9 @@ if [ -z "$JBOSS_HOME" ]; then
   PROFILE_HOME=$( derelativize $DIR/../ )
   JBOSS_HOME=$( derelativize $DIR/../../ )
 
-  if [ -z "$JBOSS_HOME/bin/product.conf" ]; then
-    echo "ERROR: couldn't auto-find JBOSS_HOME, must defined"
+  if [ ! -f "$JBOSS_HOME/bin/product.conf" ]; then
+    echo "ERROR: couldn't auto-find JBoss Application Server at ${JBOSS_HOME}"
+    echo "ERROR: Please check JBOSS_HOME environment variable."
     exit 1
   fi
 fi

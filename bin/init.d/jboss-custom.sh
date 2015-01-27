@@ -1,6 +1,9 @@
 #!/bin/sh
 #
-# Rafael Liu <rafaelliu@gmail.com>
+# Author: Rafael Liu <rafaelliu@gmail.com>
+# Modified by: Anderson Deluiz <https://github.com/anddeluiz>
+# Modified by: Karina Macedo <https://github.com/kmacedovarela>
+# Modified by: Rodrigo Ramalho <https://github.com/hodrigohamalho>
 #
 # You really shouldn't be editing this. Most of variables defined here can be overwriten on jboss-init.sh:
 #  JBOSS_HOME: yes, you guessed it!
@@ -9,10 +12,14 @@
 #  JBOSS_STARTUP_WAIT: timout to consider a startup failed (process will be left intact)
 #  JBOSS_SHUTDOWN_WAIT: timout to consider a shutdown failed (process will be left intact)
 #  JBOSS_OPTS: custom JBoss options can go here
+#  JBOSS_DOMAIN_LOG_DIR: log directory for domain
 #  BIND_ADDRESS: general IP
 #  PUBLIC_ADDRESS: public IP (defaults to $BIND_ADDRESS)
 #  MANAGEMENT_ADDRESS: management IP (defaults to $BIND_ADDRESS)
+#  MANAGEMENT_PORT: management port (it's usefull to use more than one HC on same machine)
+#  MANAGEMENT_NATIVE_PORT: management native port (it's usefull to use more than one HC on same machine)
 #  MASTER_ADDRESS: address to which HC should connect
+#  MASTER_MGMT_PORT: master server management port (it's usefull to use more than one DC on same machine)
 #  JBOSS_DOMAIN_CONFIG: domain.xml to be used if it's a DC
 #  JBOSS_HOST_CONFIG: host.xml to be used (default: automatically detected)
 #  DOMAIN_PROFILE: path to the profile dir
@@ -49,14 +56,19 @@ JBOSS_SHUTDOWN_WAIT=${JBOSS_SHUTDOWN_WAIT:-"30"}
 
 # initialize opts
 JBOSS_OPTS=${JBOSS_OPTS:-""}
+JBOSS_DOMAIN_LOG_DIR=${JBOSS_DOMAIN_LOG_DIR:-"$PROFILE_HOME/log/"}
 
 BIND_ADDRESS=${BIND_ADDRESS:-"127.0.0.1"}
 
 PUBLIC_ADDRESS=${PUBLIC_ADDRESS:-"$BIND_ADDRESS"}
 
 MANAGEMENT_ADDRESS=${MANAGEMENT_ADDRESS:-"$BIND_ADDRESS"}
+MANAGEMENT_PORT=${MANAGEMENT_PORT:-"9990"}
+MANAGEMENT_NATIVE_PORT=${MANAGEMENT_NATIVE_PORT:-"9999"}
+MASTER_MGMT_PORT=${MASTER_MGMT_PORT:-"9999"}
 
 DOMAIN_PROFILE=${DOMAIN_PROFILE:-"$JBOSS_HOME/domain"}
+
 
 # check for a domain config file, defaults to domain.xml
 JBOSS_DOMAIN_CONFIG=${JBOSS_DOMAIN_CONFIG:-"domain.xml"}
@@ -85,8 +97,8 @@ else
   # if there's no master, defaults to host-slave.xml (can still set explicitly)
   JBOSS_HOST_CONFIG=${JBOSS_HOST_CONFIG:-"host-slave.xml"}
 
-  # also add master's address
-  JBOSS_OPTS="$JBOSS_OPTS --master-address=$MASTER_ADDRESS"
+  # also add master's address and port
+  JBOSS_OPTS="$JBOSS_OPTS --master-address=$MASTER_ADDRESS -Djboss.domain.master.port=${MASTER_MGMT_PORT}"
 fi
 
 # JBoss host's name (will be used in jboss-cli)
@@ -100,7 +112,7 @@ if [ ! "$HOST" ]; then
 fi
 
 # build final opts
-JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$PROFILE_HOME --domain-config=$JBOSS_DOMAIN_CONFIG --host-config=$JBOSS_HOST_CONFIG -b $PUBLIC_ADDRESS -bmanagement $MANAGEMENT_ADDRESS"
+JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$PROFILE_HOME --domain-config=$JBOSS_DOMAIN_CONFIG --host-config=$JBOSS_HOST_CONFIG -b $PUBLIC_ADDRESS -bmanagement $MANAGEMENT_ADDRESS -Djboss.domain.log.dir=$JBOSS_DOMAIN_LOG_DIR -Djboss.management.native.port=$MANAGEMENT_NATIVE_PORT -Djboss.management.http.port=$MANAGEMENT_PORT "
 
 prog='jboss-as'
 
@@ -127,7 +139,7 @@ start() {
     if [ "$( id -un )" = "$JBOSS_USER" ]; then
       $CMD 2>&1 > $JBOSS_CONSOLE_LOG &
     elif [ "$( id -un )" = "root" ]; then
-      su - $JBOSS_USER -c "LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$JBOSS_PIDFILE $CMD" 2>&1 > $JBOSS_CONSOLE_LOG &
+      su - $JBOSS_USER -c "LAUNCH_JBOSS_IN_BACKGROUND=1 $CMD" 2>&1 > $JBOSS_CONSOLE_LOG &
     else
       failure
       echo
@@ -282,7 +294,7 @@ dump_all() {
   cli "/:read-resource(recursive=true,include-runtime=true)" &> "$DUMP_PATH/cli.dump" &
 
   # copy logs
-  cp -a "$PROFILE_HOME/log" "$DUMP_PATH/log" &
+  cp -a "$JBOSS_DOMAIN_LOG_DIR" "$DUMP_PATH/log" &
 
   # process controller
   PC_PID=$( get_pids_for "Process Controller" )
@@ -307,7 +319,7 @@ dump_all() {
       jmap -heap $PID &> "$DUMP_PATH/$SERVER/jmap.out"
     fi
 
-    cp -a "$PROFILE_HOME/servers/$SERVER/log" "$DUMP_PATH/$SERVER/log" &
+    cp -a "$JBOSS_DOMAIN_LOG_DIR/servers/$SERVER/log" "$DUMP_PATH/$SERVER/log" &
   done
 
   tar zcvf "${DUMP_FILE}.tar.gz" "$DUMP_PATH" &> /dev/null
@@ -323,7 +335,7 @@ status() {
 
   STATUS=$( cli "/host=$HOST:read-attribute(name=host-state)" 2> /dev/null | grep "result" | sed 's/.*=> "\(.*\)"/\1/g' )
   if [ -z $STATUS ]; then
-    echo "$prog process is up, but CLI is not responsive (may be shuting down or botting)"
+    echo "$prog process is up, but CLI is not responsive (may be shuting down or booting)"
     return 2
   fi
 
@@ -332,7 +344,7 @@ status() {
 }
 
 cli() {
-  OPTS="--connect --controller=$MANAGEMENT_ADDRESS "
+  OPTS="--connect --controller=$MANAGEMENT_ADDRESS:$MANAGEMENT_NATIVE_PORT "
   if [ ! -z "$*" ]; then
      # hack: jboss-cli doesn't handle quotes well
      FILE="/tmp/jboss-cli_$( date +%Y%m%d-%H%M%S%N )"
@@ -345,9 +357,9 @@ cli() {
 
 tail_log() {
   if [ $# = 0 ]; then
-    tail -100f "$PROFILE_HOME/log/host-controller.log"
+    tail -100f "$JBOSS_DOMAIN_LOG_DIR/host-controller.log"
   else
-    tail -100f "$PROFILE_HOME/servers/$1/log/server.log"
+    tail -100f "$JBOSS_DOMAIN_LOG_DIR/servers/$1/server.log"
   fi
 }
 
