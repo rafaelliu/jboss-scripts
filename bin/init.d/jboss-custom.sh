@@ -374,8 +374,8 @@ case "$1" in
       force_kill
       ;;
   restart)
-      $0 stop
-      $0 start $2
+      stop
+      start $2
       ;;
   status)
       status
