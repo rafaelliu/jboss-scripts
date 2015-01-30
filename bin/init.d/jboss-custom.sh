@@ -38,7 +38,9 @@ fi
 # Load Java configuration.
 export JAVA_HOME
 
+#
 # Set defaults.
+#
 
 if [ -z "$JBOSS_HOME" ]; then
   echo "ERROR: couldn't find JBOSS_HOME, must defined"
@@ -47,46 +49,40 @@ fi
 
 export JBOSS_HOME
 
-JBOSS_USER=${JBOSS_USER:-"jboss"}
-
-JBOSS_CONSOLE_LOG=${JBOSS_CONSOLE_LOG:-"/dev/null"}
-
-JBOSS_STARTUP_WAIT=${JBOSS_STARTUP_WAIT:-"30"}
-JBOSS_SHUTDOWN_WAIT=${JBOSS_SHUTDOWN_WAIT:-"30"}
-
-# initialize opts
-JBOSS_OPTS=${JBOSS_OPTS:-""}
-JBOSS_DOMAIN_LOG_DIR=${JBOSS_DOMAIN_LOG_DIR:-"$PROFILE_HOME/log/"}
-
 BIND_ADDRESS=${BIND_ADDRESS:-"127.0.0.1"}
-
-PUBLIC_ADDRESS=${PUBLIC_ADDRESS:-"$BIND_ADDRESS"}
-
-MANAGEMENT_ADDRESS=${MANAGEMENT_ADDRESS:-"$BIND_ADDRESS"}
-MANAGEMENT_PORT=${MANAGEMENT_PORT:-"9990"}
-MANAGEMENT_NATIVE_PORT=${MANAGEMENT_NATIVE_PORT:-"9999"}
-MASTER_MGMT_PORT=${MASTER_MGMT_PORT:-"9999"}
-
 DOMAIN_PROFILE=${DOMAIN_PROFILE:-"$JBOSS_HOME/domain"}
-
-
-# check for a domain config file, defaults to domain.xml
+JBOSS_CONSOLE_LOG=${JBOSS_CONSOLE_LOG:-"/dev/null"}
 JBOSS_DOMAIN_CONFIG=${JBOSS_DOMAIN_CONFIG:-"domain.xml"}
-
+JBOSS_DOMAIN_LOG_DIR=${JBOSS_DOMAIN_LOG_DIR:-"$PROFILE_HOME/log/"}
+JBOSS_OPTS=${JBOSS_OPTS:-""}
 JBOSS_SCRIPT=$JBOSS_HOME/bin/domain.sh
+JBOSS_SHUTDOWN_WAIT=${JBOSS_SHUTDOWN_WAIT:-"30"}
+JBOSS_STARTUP_WAIT=${JBOSS_STARTUP_WAIT:-"30"}
+JBOSS_USER=${JBOSS_USER:-"jboss"}
+MANAGEMENT_ADDRESS=${MANAGEMENT_ADDRESS:-"$BIND_ADDRESS"}
+MANAGEMENT_NATIVE_PORT=${MANAGEMENT_NATIVE_PORT:-"9999"}
+MANAGEMENT_PORT=${MANAGEMENT_PORT:-"9990"}
+MASTER_MGMT_PORT=${MASTER_MGMT_PORT:-"9999"}
+PUBLIC_ADDRESS=${PUBLIC_ADDRESS:-"$BIND_ADDRESS"}
 
 #
 # validations
 #
 
+if [ "$(id -un)" != "root" -a "$(id -un)" != "${JBOSS_USER}" ]
+then
+   echo "ERROR: this must be run by user root or user ${JBOSS_USER}"
+   exit 1
+fi
+
 id $JBOSS_USER > /dev/null
 if [ "$?" != "0" ]; then
-  echo "User '$JBOSS_USER' doesn't exist. Create it or change JBOSS_USER param"
+  echo "ERROR: User '$JBOSS_USER' doesn't exist. Create it or change JBOSS_USER param"
   exit 1
 fi
 
 #
-#
+# Check if this is a DC and adjust config files and JBoss opts
 #
 
 if [ -z "$MASTER_ADDRESS" ]; then
@@ -117,9 +113,29 @@ JBOSS_OPTS="$JBOSS_OPTS -Djboss.domain.base.dir=$PROFILE_HOME --domain-config=$J
 prog='jboss-as'
 
 start() {
-  echo -n "Starting $prog: "
-  cat /dev/null > $JBOSS_CONSOLE_LOG
+  if [ -e $JBOSS_CONSOLE_LOG ]
+  then
+    if [ -w $JBOSS_CONSOLE_LOG ]
+    then
+       cat /dev/null > $JBOSS_CONSOLE_LOG
+    else
+       echo "ERROR: console log file $JBOSS_CONSOLE_LOG doesn't have write permission for user $JBOSS_USER"
+       exit 1
+    fi
+  else
+     if [ -w $(dirname ${JBOSS_CONSOLE_LOG}) ]
+     then
+        cat /dev/null > $JBOSS_CONSOLE_LOG
+        chmod 644 $JBOSS_CONSOLE_LOG
+	chown ${JBOSS_USER}:$(id -gn ${JBOSS_USER}) $JBOSS_CONSOLE_LOG
+     else
+        echo "ERROR: error creating console log file $JBOSS_CONSOLE_LOG"
+	echo "ERROR: check permissions for user $JBOSS_USER on $(dirname JBOSS_CONSOLE_LOG) directory."
+	exit 1
+     fi
+  fi
   
+  echo -n "Starting $prog: "
   status &> /dev/null
   if [ "$?" = "0" ]; then
     echo "$prog already running"
