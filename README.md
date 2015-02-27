@@ -1,3 +1,7 @@
+I'm not maintaining this repo anymore. Here are some forks:
+* https://github.com/AndDeluiz/jboss-scripts
+* add yours here
+
 Jboss Management 
 =================
 
